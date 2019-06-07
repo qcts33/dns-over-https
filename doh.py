@@ -37,7 +37,7 @@ async def aio_dns(name, record_type="AAAA", protocol="json"):
     params = {"name": name, "type": record_type}
     if protocol == "json":
         headers = {"accept": "application/dns-json"}
-    if protocol == "wireformat":
+    elif protocol == "wireformat":
         headers = {"accept": "application/dns-message"}
         raise NotImplementedError
     else:
