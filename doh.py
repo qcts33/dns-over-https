@@ -52,7 +52,6 @@ async def aio_dns(name, record_type="AAAA", protocol="json"):
         for f in asyncio.as_completed(tasks):
             url, ans = await f
             click.secho(url, fg='green')
-            print(ans)
             formated_output(ans)
 
 
