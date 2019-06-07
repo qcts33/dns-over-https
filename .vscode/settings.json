@@ -1,4 +1,5 @@
 {
     "python.pythonPath": "C:\\Users\\Chen\\Miniconda3\\envs\\network\\python.exe",
-    "python.linting.mypyEnabled": true
+    "python.linting.mypyEnabled": true,
+    "python.testing.pyTestEnabled": true
 }
