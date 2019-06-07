@@ -14,6 +14,8 @@ async def fetch_json(url: str, params: dict, session: aiohttp.ClientSession):
         answer = {"Answer": ["Connector Error"]}
     except json.JSONDecodeError:
         answer = {"Answer": ["JSON Decode Error"]}
+    except aiohttp.ServerTimeoutError:
+        answer = {"Answer": ["Timeout Error"]}
     return url, answer
 
 
@@ -23,9 +25,9 @@ def formated_output(ans):
         for a in ans["Answer"]:
             answer[a["name"]].append(a["data"])
         for k, v in answer.items():
-            print(f"  {k}")
+            print(f"{k}")
             for data in v:
-                print(f"    {data}")
+                print(f" {data}")
     except TypeError:
         for a in ans["Answer"]:
             print(f"  {a}")
@@ -44,11 +46,13 @@ async def aio_dns(name, record_type="AAAA", protocol="json"):
         raise NotImplementedError
     with open("server_list.json", "r") as fp:
         server_list = json.load(fp)
-    async with aiohttp.ClientSession(headers=headers) as session:
+    timeout = aiohttp.ClientTimeout(sock_connect=5)
+    async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
         tasks = list(fetch_json(url, params, session) for url in server_list)
         for f in asyncio.as_completed(tasks):
             url, ans = await f
-            print(url)
+            click.secho(url, fg='green')
+            print(ans)
             formated_output(ans)
 
 
