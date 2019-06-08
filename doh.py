@@ -1,14 +1,15 @@
 import asyncio
 import json
 from collections import defaultdict
+from typing import DefaultDict
 
 import aiohttp
 import click
 
 
-async def fetch_json(url: str, params: dict, session: aiohttp.ClientSession):
+async def fetch_json(url: str, query: dict, session: aiohttp.ClientSession):
     try:
-        async with session.get(f"https://{url}", params=params) as resp:
+        async with session.get(f"https://{url}", params=query) as resp:
             answer = await resp.json(content_type=None)
     except aiohttp.ClientConnectorError:
         answer = {"Answer": ["Connector Error"]}
@@ -19,8 +20,8 @@ async def fetch_json(url: str, params: dict, session: aiohttp.ClientSession):
     return url, answer
 
 
-def formated_output(ans):
-    answer = defaultdict(list)
+def formated_output(ans: dict):
+    answer: DefaultDict[str, list] = defaultdict(list)
     try:
         for a in ans["Answer"]:
             answer[a["name"]].append(a["data"])
@@ -36,8 +37,8 @@ def formated_output(ans):
 
 
 async def aio_dns(name, record_type="AAAA", protocol="json"):
-    params = {"name": name, "type": record_type}
     if protocol == "json":
+        query = {"name": name, "type": record_type}
         headers = {"accept": "application/dns-json"}
     elif protocol == "wireformat":
         headers = {"accept": "application/dns-message"}
@@ -48,10 +49,13 @@ async def aio_dns(name, record_type="AAAA", protocol="json"):
         server_list = json.load(fp)
     timeout = aiohttp.ClientTimeout(sock_connect=5)
     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-        tasks = list(fetch_json(url, params, session) for url in server_list)
+        tasks = list(
+            fetch_json(url=url, query=query, session=session)
+            for url in server_list
+        )
         for f in asyncio.as_completed(tasks):
             url, ans = await f
-            click.secho(url, fg='green')
+            click.secho(url, fg="green")
             formated_output(ans)
 
 
