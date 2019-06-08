@@ -12,10 +12,8 @@ async def fetch_wireformat(url, query, session):
         async with session.post(f"https://{url}", data=query) as resp:
             wire = await resp.read()
         response = dns.message.from_wire(wire)
-    except TypeError:
-        response = "TypeError"
-    except aiohttp.payload.LookupError:
-        response = "LookupError"
+    except aiohttp.ServerTimeoutError:
+        response = dns.message.from_wire(query)
     return url, response
 
 
