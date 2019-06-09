@@ -56,8 +56,11 @@ async def fetch_json(url: str, query: dict, session: aiohttp.ClientSession):
 def formated_output(ans: dict):
     answer = ans.get("Answer", [])
     for a in answer:
-        a["rdtype"] = dns.rdatatype.to_text(a["type"])
-        print("{name} {TTL} {rdtype} {data}".format(**a))
+        if isinstance(a, dict):
+            a["rdtype"] = dns.rdatatype.to_text(a["type"])
+            print("{name} {TTL} {rdtype} {data}".format(**a))
+        else:
+            print(a)
 
 
 async def aio_json(name, server_list, record_type="AAAA"):
