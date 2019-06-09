@@ -80,7 +80,7 @@ async def aio_json(name, server_list, record_type="AAAA"):
 @click.command()
 @click.argument("name")
 @click.argument("record_type", default="A")
-@click.argument("protocol", default="json")
+@click.argument("protocol", default="wire")
 def main(name: str, record_type: str, protocol: str):
     with open("server_list.json", "r") as fp:
         server_list = json.load(fp)
