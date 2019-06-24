@@ -4,22 +4,30 @@ import json
 import aiohttp
 import click
 import dns.message
+import dns.name
 import dns.rdatatype
 
 
 async def fetch_wireformat(url, query, session):
     try:
-        async with session.post(f"https://{url}", data=query) as resp:
+        async with session.post(f"https://{url}/dns-query", data=query) as resp:
             wire = await resp.read()
         response = dns.message.from_wire(wire)
     except aiohttp.ServerTimeoutError:
-        response = dns.message.from_wire(query)
+        response = "ServerTimeoutError"
+    except dns.message.ShortHeader:
+        response = "ShortHeader"
+    except dns.name.BadLabelType:
+        response = "BadLabelType"
     return url, response
 
 
 def format_message(response):
-    for answer in response.answer:
-        print(answer)
+    try:
+        for answer in response.answer:
+            print(answer)
+    except AttributeError:
+        print(response)
 
 
 async def aio_wire(name, server_list, record_type="AAAA"):
@@ -42,25 +50,25 @@ async def aio_wire(name, server_list, record_type="AAAA"):
 
 async def fetch_json(url: str, query: dict, session: aiohttp.ClientSession):
     try:
-        async with session.get(f"https://{url}", params=query) as resp:
+        async with session.get(f"https://{url}/dns-query", params=query) as resp:
             answer = await resp.json(content_type=None)
     except aiohttp.ClientConnectorError:
-        answer = {"Answer": ["Connector Error"]}
+        answer = "ClientConnectorError"
     except json.JSONDecodeError:
-        answer = {"Answer": ["JSON Decode Error"]}
+        answer = "JSONDecodeError"
     except aiohttp.ServerTimeoutError:
-        answer = {"Answer": ["Timeout Error"]}
+        answer = "ServerTimeoutError"
     return url, answer
 
 
 def formated_output(ans: dict):
-    answer = ans.get("Answer", [])
-    for a in answer:
-        if isinstance(a, dict):
+    try:
+        answer = ans.get("Answer", [])
+        for a in answer:
             a["rdtype"] = dns.rdatatype.to_text(a["type"])
             print("{name} {TTL} {rdtype} {data}".format(**a))
-        else:
-            print(a)
+    except AttributeError:
+        print(ans)
 
 
 async def aio_json(name, server_list, record_type="AAAA"):
@@ -82,8 +90,8 @@ async def aio_json(name, server_list, record_type="AAAA"):
 @click.argument("record_type", default="A")
 @click.argument("protocol", default="wire")
 def main(name: str, record_type: str, protocol: str):
-    with open("server_list.json", "r") as fp:
-        server_list = json.load(fp)
+    with open("server_list.txt", "r") as fp:
+        server_list = list(s.strip() for s in fp)
     if protocol == "json":
         asyncio.run(aio_json(name, server_list, record_type))
     elif protocol == "wire":
