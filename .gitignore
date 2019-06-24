@@ -237,3 +237,5 @@ cscope.po.out
 
 # End of https://www.gitignore.io/api/tags,code,python,pycharm
 
+public-resolvers.json
+server_list.txt
