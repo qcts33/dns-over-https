@@ -1,8 +1,11 @@
 import asyncio
 import json
+import warnings
+from typing import Dict
 
 import aiohttp
 import click
+import dns.edns
 import dns.message
 import dns.name
 import dns.rdatatype
@@ -21,11 +24,11 @@ def get_trace_config():
     return trace_config
 
 
-async def fetch_wireformat(url, query, session):
+async def fetch_wireformat(url, query, session, proxy):
     try:
         trace = dict()
         async with session.post(
-            f"https://{url}/dns-query", data=query, trace_request_ctx=trace
+            f"https://{url}/dns-query", data=query, trace_request_ctx=trace, proxy=proxy
         ) as resp:
             wire = await resp.read()
         response = dns.message.from_wire(wire)
@@ -48,19 +51,26 @@ def format_message(response):
         print(response)
 
 
-async def aio_wire(name, server_list, record_type="AAAA"):
+async def aio_wire(name, server_list, record_type="AAAA", ecs="", proxy=""):
     headers = {
         "accept": "application/dns-message",
         "content-type": "application/dns-message",
     }
-    query = dns.message.make_query(qname=name, rdtype=record_type).to_wire()
+    query = dns.message.make_query(qname=name, rdtype=record_type)
+    if len(ecs) > 0:
+        query.use_edns(ednsflags=dns.edns.ECS, options=[dns.edns.ECSOption(ecs)])
+    wire = query.to_wire()
     timeout = aiohttp.ClientTimeout(sock_connect=5)
     trace_config = get_trace_config()
+    if len(proxy) > 0:
+        proxy = f"http://{proxy}"
+    else:
+        proxy = None
     async with aiohttp.ClientSession(
         headers=headers, timeout=timeout, trace_configs=[trace_config]
     ) as session:
         tasks = list(
-            fetch_wireformat(url=url, query=query, session=session)
+            fetch_wireformat(url=url, query=wire, session=session, proxy=proxy)
             for url in server_list
         )
         for f in asyncio.as_completed(tasks):
@@ -71,11 +81,13 @@ async def aio_wire(name, server_list, record_type="AAAA"):
 
 async def fetch_json(url: str, query: dict, session: aiohttp.ClientSession):
     try:
-        trace = dict()
+        trace: Dict[str, float] = dict()
         async with session.get(
             f"https://{url}/dns-query", params=query, trace_request_ctx=trace
         ) as resp:
             answer = await resp.json(content_type=None)
+    except ConnectionResetError:
+        answer = "ConnectionResetError"
     except aiohttp.ClientConnectorError:
         answer = "ClientConnectorError"
     except json.JSONDecodeError:
@@ -117,14 +129,24 @@ async def aio_json(name, server_list, record_type="AAAA"):
 @click.command()
 @click.argument("name")
 @click.argument("record_type", default="A")
-@click.argument("protocol", default="wire")
-def main(name: str, record_type: str, protocol: str):
-    with open("server_list.txt", "r") as fp:
-        server_list = list(s.strip() for s in fp)
+@click.option("--protocol", default="wire")
+@click.option("-s", "--server", default="")
+@click.option("-e", "--ecs", default="")
+@click.option("-p", "--proxy", default="")
+def main(name: str, record_type: str, protocol: str, server: str, ecs: str, proxy: str):
+    if len(server) == 0:
+        with open("server_list.txt", "r") as fp:
+            server_list = list(s.strip() for s in fp)
+    else:
+        server_list = [server]
     if protocol == "json":
+        warnings.warn(
+            "JSON protocol is unmaintained, please use wireformat",
+            DeprecationWarning,
+        )
         asyncio.run(aio_json(name, server_list, record_type))
     elif protocol == "wire":
-        asyncio.run(aio_wire(name, server_list, record_type))
+        asyncio.run(aio_wire(name, server_list, record_type, ecs=ecs, proxy=proxy))
 
 
 if __name__ == "__main__":
