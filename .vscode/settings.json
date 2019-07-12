@@ -1,8 +1,8 @@
 {
     "python.pythonPath": ".venv\\Scripts\\python.exe",
     "python.linting.mypyEnabled": true,
-    "python.testing.pyTestEnabled": true,
-    "python.testing.pyTestArgs": [
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
         "."
     ],
     "python.testing.unittestEnabled": false,
